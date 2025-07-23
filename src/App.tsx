@@ -72,7 +72,7 @@ function App() {
         transition={{ duration: 0.6 }}
       >
         <h1 className="text-3xl font-bold text-blue-400 mb-4 text-center">
-          🔵🔴🟢💛  Proxpire Chat Assistant
+        🤖🌍  Proxpire Chat Assistant
         </h1>
         <div className="h-96 overflow-y-auto scrollbar-hidden space-y-4 mb-4 p-3 bg-gray-800 rounded-md">
           {messages.map((msg, index) => (
