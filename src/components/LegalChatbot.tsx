@@ -14,18 +14,19 @@ const LegalChatbot = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showDelayMessage, setShowDelayMessage] = useState(false);
-  const webhookURL = "https://proxpire.com/webhook-test/legal-query";
+  // const webhookURL = "https://proxpire.com/webhook-test/legal-query";
+  const webhookURL = "https://proxpire.com/webhook/legal-query";
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   // Function to format message text
-  const formatMessage = (text: string) => {
-    return text.split('\n').map((line, i) => (
-      <React.Fragment key={i}>
-        {line}
-        {i !== text.split('\n').length - 1 && <br />}
-      </React.Fragment>
-    ));
-  };
+  // const formatMessage = (text: string) => {
+  //   return text.split('\n').map((line, i) => (
+  //     <React.Fragment key={i}>
+  //       {line}
+  //       {i !== text.split('\n').length - 1 && <br />}
+  //     </React.Fragment>
+  //   ));
+  // };
 
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
