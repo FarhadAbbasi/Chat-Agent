@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Route, Routes, Link } from "react-router-dom";
 // import { motion } from "framer-motion";
 import DocumentUpload from "./components/UploadFile";
 import Chatbot from "./components/Chatbot"; // Import the Chatbot component
+import LegalChatbot from "./components/LegalChatbot";
 
 function App() {
   return (
@@ -14,6 +15,11 @@ function App() {
             <li>
               <Link to="/" className="text-white hover:underline">
                 Chatbot
+              </Link>
+            </li>
+            <li>
+              <Link to="/legalAssistant" className="text-white hover:underline">
+                Legal Assistant
               </Link>
             </li>
             <li>
@@ -28,6 +34,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Chatbot />} /> {/* Default route */}
             <Route path="/upload" element={<DocumentUpload />} />
+            <Route path="/legalAssistant" element={<LegalChatbot />} />
           </Routes>
         </div>
       </div>

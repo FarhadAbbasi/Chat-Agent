@@ -2,25 +2,47 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
 
-const DocumentUpload = () => {
-//   const webhookURL = "https://proxpire.com/webhook/ingest-legal-document"; // Declare the webhook URL here
-  const webhookURL = "https://proxpire.com/webhook-test/ingest-legal-document"; // Declare the webhook URL here
+interface WebhookResponse {
+  fileName: string;
+  message: string;
+  metadata: {
+    title: string;
+    author: string;
+    category: string;
+    court: string | null;
+    caseNumber: string | null;
+  };
+  processingId: string;
+  qdrantCollection: string;
+  statistics: {
+    failedInsertions: number;
+    originalDocumentLength: number;
+    successfulInsertions: number;
+    totalChunks: number;
+  };
+  success: boolean;
+  timestamp: string;
+}
 
-  const [file, setFile] = useState<File | null>(null); // Specify the type for file
+const DocumentUpload = () => {
+  const webhookURL = "https://proxpire.com/webhook-test/ingest-legal-document";
+
+  const [file, setFile] = useState<File | null>(null);
   const [metadata, setMetadata] = useState({
     title: "",
     author: "",
     category: "",
-    court: "",
     case_number: "",
     date: "",
     tags: "",
     description: "",
-    text_content: "", // Add text_content to the metadata state
+    text_content: "",
   });
   const [uploading, setUploading] = useState(false);
-  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null); // Allow string or null
-  const [error, setError] = useState<string>(""); // Specify type for error
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string>("");
+  const [webhookResponse, setWebhookResponse] = useState<WebhookResponse | null>(null);
+  const [uploadMode, setUploadMode] = useState<'file' | 'text'>('file');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -38,62 +60,71 @@ const DocumentUpload = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log("Form submitted"); // Log when the form is submitted
+    console.log("Form submitted");
 
-    if (!file && !metadata.text_content) {
-      setError("Please select a file or enter document text.");
-      console.log("Error: No file or text content provided."); // Log error condition
+    if (uploadMode === 'file' && !file) {
+      setError("Please select a file to upload.");
+      return;
+    }
+
+    if (uploadMode === 'text' && !metadata.text_content) {
+      setError("Please enter document text.");
       return;
     }
 
     setUploading(true);
     setError("");
     setUploadSuccess(null);
+    setWebhookResponse(null);
 
-    const formData = new FormData();
-    if (file) {
-      formData.append("file", file);
-      formData.append(
-        "metadata",
-        JSON.stringify({
+    try {
+      let response;
+      if (uploadMode === 'text') {
+        const requestData = {
           ...metadata,
           tags: metadata.tags.split(",").map((tag) => tag.trim()),
-        })
-      );
-      console.log("File and metadata prepared for upload:", { file, metadata }); // Log file and metadata
-    }
-
-    // For URL download or text content, we create the request body as JSON
-    if (metadata.text_content) {
-        // Method 3: Text Upload
-      console.log("Uploading text content..."); // Log text upload
-      try {
-        const response = await axios.post(webhookURL, {
-        //   text_content: metadata.text_content,
+        };
+        console.log("Uploading text content with data:", requestData);
+        response = await axios.post(webhookURL, requestData);
+      } else {
+        console.log("Uploading file...");
+        const formData = new FormData();
+        formData.append("file", file!);
+        
+        // Create metadata without text_content for file upload
+        const fileMetadata = {
           ...metadata,
+          text_content: null, // Explicitly set to null for file uploads
+          tags: metadata.tags.split(",").map((tag) => tag.trim()),
+        };
+        formData.append("metadata", JSON.stringify(fileMetadata));
+        
+        // Log the actual data being sent
+        console.log("Upload file metadata:", fileMetadata);
+        // Log FormData entries
+        for (const [key, value] of formData.entries()) {
+          console.log(`FormData ${key}:`, value);
+        }
+        
+        response = await axios.post(webhookURL, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
         });
-        console.log("Text content upload response:", response.data); // Log response from upload
-        setUploadSuccess("Document uploaded successfully!");
-      } catch (err) {
-        console.error("Error uploading document:", err); // Log error
-        setError("Error uploading document.");
       }
-    } else if (file) {
-        // Method 1: File Upload with metadata
-        console.log("Uploading file..."); // Log file upload
-        console.log("Upload file :", formData); // Log file upload
-      try {
-        const response = await axios.post(webhookURL, formData, {
-            headers: { "Content-Type": "multipart/form-data" }, // Ensure this header is set correctly
-        });
-        console.log("File upload response:", response.data); // Log response from upload
-        setUploadSuccess("Document uploaded successfully!");
-      } catch (err) {
-        console.error("Error uploading document:", err); // Log error
-        setError("Error uploading document.");
-      }
+      
+      console.log("Upload response:", response.data);
+      setWebhookResponse(response.data);
+      setUploadSuccess("Document uploaded successfully!");
+    } catch (err) {
+      console.error("Error uploading document:", err);
+      setError("Error uploading document.");
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
+  };
+
+  const handleCloseSuccess = () => {
+    setUploadSuccess(null);
+    setWebhookResponse(null);
   };
 
   return (
@@ -105,25 +136,91 @@ const DocumentUpload = () => {
         transition={{ duration: 0.6 }}
       >
         <h1 className="text-3xl font-bold text-blue-400 mb-4 text-center">
-         📂 Document Upload 
+          📂 Document Upload
         </h1>
 
-        {uploadSuccess && (
-          <div className="text-green-400 mb-4">{uploadSuccess}</div>
+        {uploadSuccess && webhookResponse && (
+          <div className="bg-green-900/50 border border-green-500 rounded-lg p-4 mb-4 space-y-2 relative">
+            <button
+              onClick={handleCloseSuccess}
+              className="absolute top-2 right-2 text-red-400 hover:text-red-300"
+            >
+              ✕
+            </button>
+            <div className="text-green-400 font-semibold">{webhookResponse.message}</div>
+            <div className="text-sm space-y-1">
+              <p><span className="text-green-400">Collection:</span> {webhookResponse.qdrantCollection}</p>
+              <div className="mt-2">
+                <p className="text-green-400 font-semibold">Statistics:</p>
+                <ul className="list-disc list-inside pl-2">
+                  <li>Total Chunks: {webhookResponse.statistics.totalChunks}</li>
+                  <li>Successful Insertions: {webhookResponse.statistics.successfulInsertions}</li>
+                  <li>Failed Insertions: {webhookResponse.statistics.failedInsertions}</li>
+                  <li>Document Length: {webhookResponse.statistics.originalDocumentLength}</li>
+                </ul>
+              </div>
+              <p className="text-xs text-green-400/70 mt-2">
+                Timestamp: {new Date(webhookResponse.timestamp).toLocaleString()}
+              </p>
+            </div>
+          </div>
         )}
+        
         {error && <div className="text-red-400 mb-4">{error}</div>}
+
+        {/* Upload Mode Toggle */}
+        <div className="flex justify-center mb-6">
+          <div className="bg-gray-800 p-1 gap-4 rounded-lg inline-flex">
+            <button
+              className={`px-4 py-2 rounded-md transition-all ${
+                uploadMode === 'file'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-500 bg-gray-200 hover:text-slate-600'
+              }`}
+              onClick={() => setUploadMode('file')}
+            >
+              Upload File
+            </button>
+            <button
+              className={`px-4 py-2 rounded-md transition-all ${
+                uploadMode === 'text'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-500 bg-gray-200 hover:text-slate-600'
+              }`}
+              onClick={() => setUploadMode('text')}
+            >
+              Upload Text
+            </button>
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* File Upload */}
-          <div className="space-y-2">
-            <label className="text-lg font-medium">Upload Document</label>
-            <input
-              type="file"
-              accept=".pdf,.doc,.docx,.txt"
-              onChange={handleFileChange}
-              className="w-full text-white p-3 bg-gray-700 rounded-lg"
-            />
-          </div>
+          {uploadMode === 'file' && (
+            <div className="space-y-2">
+              <label className="text-lg font-medium">Upload Document</label>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.txt"
+                onChange={handleFileChange}
+                className="w-full text-white p-3 bg-gray-700 rounded-lg"
+              />
+            </div>
+          )}
+
+          {/* Text Upload */}
+          {uploadMode === 'text' && (
+            <div className="space-y-2">
+              <label className="text-lg font-medium">Document Text</label>
+              <textarea
+                name="text_content"
+                value={metadata.text_content}
+                onChange={handleMetadataChange}
+                className="w-full text-white p-3 bg-gray-700 rounded-lg min-h-[200px]"
+                placeholder="Enter your document text here..."
+              ></textarea>
+            </div>
+          )}
 
           {/* Metadata Form */}
           <div className="space-y-2">
@@ -153,16 +250,6 @@ const DocumentUpload = () => {
               type="text"
               name="category"
               value={metadata.category}
-              onChange={handleMetadataChange}
-              className="w-full text-white p-3 bg-gray-700 rounded-lg"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-lg font-medium">Court</label>
-            <input
-              type="text"
-              name="court"
-              value={metadata.court}
               onChange={handleMetadataChange}
               className="w-full text-white p-3 bg-gray-700 rounded-lg"
             />
@@ -202,17 +289,6 @@ const DocumentUpload = () => {
             <textarea
               name="description"
               value={metadata.description}
-              onChange={handleMetadataChange}
-              className="w-full text-white p-3 bg-gray-700 rounded-lg"
-            ></textarea>
-          </div>
-
-          {/* Text Upload Option */}
-          <div className="space-y-2">
-            <label className="text-lg font-medium">Or Text Upload</label>
-            <textarea
-              name="text_content"
-              value={metadata.text_content}
               onChange={handleMetadataChange}
               className="w-full text-white p-3 bg-gray-700 rounded-lg"
             ></textarea>
