@@ -18,22 +18,13 @@ const LegalChatbot = () => {
   const webhookURL = "https://proxpire.com/webhook/legal-query";
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Function to format message text
-  // const formatMessage = (text: string) => {
-  //   return text.split('\n').map((line, i) => (
-  //     <React.Fragment key={i}>
-  //       {line}
-  //       {i !== text.split('\n').length - 1 && <br />}
-  //     </React.Fragment>
-  //   ));
-  // };
 
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
     if (loading) {
       timeoutId = setTimeout(() => {
         setShowDelayMessage(true);
-      }, 30000); // 30 seconds
+      }, 30000); // 30 seconds to prompt user that AI-request is taking longer than usual
     } else {
       setShowDelayMessage(false);
     }
@@ -41,6 +32,70 @@ const LegalChatbot = () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [loading]);
+
+
+  const sendMessage = async () => {
+    if (!input.trim()) return;
+    const userMessage = { from: "user", text: input };
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setLoading(true);
+
+    // Create an AbortController for the request
+    const controller = new AbortController();
+    const timeoutDuration = 120000; // 2 minutes in milliseconds
+
+    // Create a timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        controller.abort();
+        reject(new Error('Request timed out after 2 minutes'));
+      }, timeoutDuration);
+    });
+
+    try {
+      // Race between the API call and the timeout
+      const response = await Promise.race([
+        axios.post(
+          webhookURL,
+          { message: input },
+          {
+            signal: controller.signal,
+          }
+        ),
+        timeoutPromise
+      ]) as { data: { response: string } };
+
+      console.log('Legal Assistant Reply:', response.data);
+      const botReply = response?.data?.response || "I'm sorry, I didn't get that.";
+      setMessages((prev) => [...prev, { from: "bot", text: botReply }]);
+    } catch (error: unknown) {
+      console.error("Error contacting webhook:", error);
+      let errorMessage = "⚠️ Sorry, something went wrong. Please try again later.";
+      
+      if (
+        (error instanceof Error && error.message === 'Request timed out after 2 minutes') || 
+        (axios.isAxiosError(error) && error.code === "ECONNABORTED")
+      ) {
+        errorMessage = "⚠️ Request timed out after 2 minutes. Please try again or rephrase your question.";
+      }
+      
+      setMessages((prev) => [
+        ...prev,
+        {
+          from: "bot",
+          text: errorMessage,
+        },
+      ]);
+    } finally {
+      setLoading(false);
+      controller.abort(); // Cleanup the controller
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") sendMessage();
+  };
 
   const LoadingDots = () => {
     return (
@@ -79,53 +134,6 @@ const LegalChatbot = () => {
     );
   };
 
-  const sendMessage = async () => {
-    if (!input.trim()) return;
-    const userMessage = { from: "user", text: input };
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setLoading(true);
-
-    // Create an AbortController for the request
-    const controller = new AbortController();
-    const timeoutDuration = 120000; // 2 minutes in milliseconds
-
-    try {
-      const res = await axios.post(webhookURL, 
-        { message: input },
-        {
-          signal: controller.signal,
-          timeout: timeoutDuration,
-        }
-      );
-      console.log('Legal Assistant Reply:', res.data);
-      const botReply = res?.data?.response || "I'm sorry, I didn't get that.";
-      setMessages((prev) => [...prev, { from: "bot", text: botReply }]);
-    } catch (error) {
-      console.error("Error contacting webhook:", error);
-      let errorMessage = "⚠️ Sorry, something went wrong. Please try again later.";
-      
-      // Check if it's a timeout error
-      if (axios.isAxiosError(error) && error.code === "ECONNABORTED") {
-        errorMessage = "⚠️ Request timed out after 2 minutes. Please try again or rephrase your question.";
-      }
-      
-      setMessages((prev) => [
-        ...prev,
-        {
-          from: "bot",
-          text: errorMessage,
-        },
-      ]);
-    } finally {
-      setLoading(false);
-      controller.abort(); // Cleanup the controller
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") sendMessage();
-  };
 
   useEffect(() => {
     if (chatEndRef.current) {
