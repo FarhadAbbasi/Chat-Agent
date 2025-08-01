@@ -25,8 +25,8 @@ interface WebhookResponse {
 }
 
 const DocumentUpload = () => {
-  // const webhookURL = "https://proxpire.com/webhook/ingest-legal-document";
-  const webhookURL = "https://proxpire.com/webhook-test/ingest-legal-document";
+  const webhookURL = "https://proxpire.com/webhook/ingest-legal-document";
+  // const webhookURL = "https://proxpire.com/webhook-test/ingest-legal-document";
 
   const [file, setFile] = useState<File | null>(null);
   const [metadata, setMetadata] = useState({
