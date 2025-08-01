@@ -25,13 +25,14 @@ interface WebhookResponse {
 }
 
 const DocumentUpload = () => {
-  const webhookURL = "https://proxpire.com/webhook-test/ingest-legal-document";
+  const webhookURL = "https://proxpire.com/webhook/ingest-legal-document";
+  // const webhookURL = "https://proxpire.com/webhook-test/ingest-legal-document";
 
   const [file, setFile] = useState<File | null>(null);
   const [metadata, setMetadata] = useState({
     title: "",
     author: "",
-    category: "",
+    category: "test_documents", // Set default category
     case_number: "",
     date: "",
     tags: "",
@@ -50,7 +51,7 @@ const DocumentUpload = () => {
     }
   };
 
-  const handleMetadataChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleMetadataChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setMetadata((prevMetadata) => ({
       ...prevMetadata,
@@ -246,13 +247,18 @@ const DocumentUpload = () => {
           </div>
           <div className="space-y-2">
             <label className="text-lg font-medium">Category</label>
-            <input
-              type="text"
+            <select
               name="category"
               value={metadata.category}
               onChange={handleMetadataChange}
               className="w-full text-white p-3 bg-gray-700 rounded-lg"
-            />
+            >
+              {/* <option value="">Select a category</option> */}
+              <option value="test_documents">Test Documents</option>
+              <option value="legal_documents">Legal Category</option>
+              <option value="legal_cases">Legal Cases</option>
+              <option value="test_cases">Test Cases</option>
+            </select>
           </div>
           <div className="space-y-2">
             <label className="text-lg font-medium">Case Number</label>
