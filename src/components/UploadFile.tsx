@@ -25,8 +25,8 @@ interface WebhookResponse {
 }
 
 const DocumentUpload = () => {
-  const webhookURL = "https://proxpire.com/webhook/ingest-legal-document";
-  // const webhookURL = "https://proxpire.com/webhook-test/ingest-legal-document";
+  // const webhookURL = "https://proxpire.com/webhook/ingest-legal-document";
+  const webhookURL = "https://proxpire.com/webhook-test/ingest-legal-document";
 
   const [file, setFile] = useState<File | null>(null);
   const [metadata, setMetadata] = useState({
@@ -80,28 +80,39 @@ const DocumentUpload = () => {
 
     try {
       let response;
-      if (uploadMode === 'text') {
-        const requestData = {
-          ...metadata,
-          tags: metadata.tags.split(",").map((tag) => tag.trim()),
-        };
-        console.log("Uploading text content with data:", requestData);
-        response = await axios.post(webhookURL, requestData);
+              if (uploadMode === 'text') {
+          // Send all fields directly in the request body
+          const requestData = {
+            title: metadata.title,
+            author: metadata.author,
+            category: metadata.category,
+            case_number: metadata.case_number,
+            date: metadata.date,
+            description: metadata.description,
+            tags: metadata.tags.split(",").map(tag => tag.trim()).join(","),
+            text_content: metadata.text_content
+          };
+          console.log("Uploading text content with data:", requestData);
+          response = await axios.post(webhookURL, requestData);
       } else {
         console.log("Uploading file...");
         const formData = new FormData();
         formData.append("file", file!);
         
-        // Create metadata without text_content for file upload
-        const fileMetadata = {
-          ...metadata,
-          text_content: null, // Explicitly set to null for file uploads
-          tags: metadata.tags.split(",").map((tag) => tag.trim()),
-        };
-        formData.append("metadata", JSON.stringify(fileMetadata));
+        // Append each metadata field separately, it will appear in "body" of the request
+        formData.append("title", metadata.title);
+        formData.append("author", metadata.author);
+        formData.append("category", metadata.category);
+        formData.append("case_number", metadata.case_number);
+        formData.append("date", metadata.date);
+        formData.append("description", metadata.description);
+        formData.append("tags", metadata.tags.split(",").map(tag => tag.trim()).join(","));
+        formData.append("text_content", "");         // Create metadata without text_content for file upload
+
+        
         
         // Log the actual data being sent
-        console.log("Upload file metadata:", fileMetadata);
+        console.log("Upload file metadata:", metadata);
         // Log FormData entries
         for (const [key, value] of formData.entries()) {
           console.log(`FormData ${key}:`, value);
